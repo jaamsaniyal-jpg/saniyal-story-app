@@ -1,31 +1,19 @@
-{
-  "name": "0109-app",
-  "version": "1.0.0",
-  "private": true,
-  "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-scripts": "5.0.1"
-  },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build"
-  },
-  "browserslist": {
-    "production": [">0.2%", "not dead"],
-    "development": ["last 1 chrome version"]
-  }
-}
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<React.StrictMode><App /></React.StrictMode>);
 ```
 
-**Commit changes** dabao ✅
+**Commit changes** ✅
 
 ---
 
-## ✅ STEP 3 — public/index.html Banao
+## ✅ STEP 5 — src/App.js Banao
 
 **"+"** → **"Create new file"**
 
 File naam:
 ```
-public/index.html
+src/App.js
