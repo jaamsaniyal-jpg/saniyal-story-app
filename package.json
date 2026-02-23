@@ -1,4 +1,57 @@
-import React from 'react';
+{
+  "name": "saniyal-story-app",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-scripts": "5.0.1"
+  },
+  "scripts": {
+    "start": "react-scripts start",
+    "build": "react-scripts build"
+  },
+  "browserslist": {
+    "production": [">0.2%", "not dead"],
+    "development": ["last 1 chrome version"]
+  }
+}
+```
+
+**Commit changes** dabao ✅
+
+---
+
+## ✅ STEP 3 — public/index.html Banao
+
+**"+"** → **"Create new file"**
+
+File naam:
+```
+public/index.html<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Saniyal Story Tools</title>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
+```
+
+**Commit changes** ✅
+
+---
+
+## ✅ STEP 4 — src/index.js Banao
+
+**"+"** → **"Create new file"**
+
+File naam:
+```
+src/index.jsimport React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
