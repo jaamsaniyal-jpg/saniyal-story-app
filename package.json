@@ -1,0 +1,868 @@
+import { useState, useEffect } from "react";
+
+// ── FONTS + CSS ───────────────────────────────────────────────────────────────
+const fontLink = document.createElement("link");
+fontLink.rel = "stylesheet";
+fontLink.href = "https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=DM+Sans:wght@300;400;500;600&display=swap";
+document.head.appendChild(fontLink);
+
+const style = document.createElement("style");
+style.textContent = `
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  ::-webkit-scrollbar{width:4px;}
+  ::-webkit-scrollbar-thumb{background:rgba(200,148,63,.35);border-radius:99px;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  @keyframes glow{0%,100%{text-shadow:0 0 20px rgba(200,148,63,.3)}50%{text-shadow:0 0 60px rgba(200,148,63,.7)}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  @keyframes badgePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+  @keyframes shimmer{0%{opacity:.4}50%{opacity:1}100%{opacity:.4}}
+  @keyframes scanline{0%{transform:translateY(-100%)}100%{transform:translateY(100vh)}}
+  @keyframes borderGlow{0%,100%{box-shadow:0 0 10px rgba(200,148,63,.1)}50%{box-shadow:0 0 30px rgba(200,148,63,.3)}}
+  .fu{animation:fadeUp .45s cubic-bezier(.16,1,.3,1) both;}
+  .glow{animation:glow 3s ease-in-out infinite;}
+  .float{animation:float 4s ease-in-out infinite;}
+  .spin{animation:spin 1s linear infinite;display:inline-block;}
+  .shimmer{animation:shimmer 1.8s ease infinite;}
+  .hov{transition:all .2s;cursor:pointer;}
+  .hov:hover{opacity:.82;transform:translateY(-1px);}
+  .card-hov{transition:all .25s;cursor:pointer;}
+  .card-hov:hover{border-color:rgba(200,148,63,.55)!important;transform:translateY(-3px);box-shadow:0 24px 60px rgba(0,0,0,.6)!important;}
+  .plan-card{transition:all .22s;cursor:pointer;}
+  .plan-card:hover{transform:scale(1.025);}
+  .sidebar-item{transition:all .18s;cursor:pointer;border-left:3px solid transparent;user-select:none;}
+  .sidebar-item:hover{background:rgba(200,148,63,.09)!important;color:#c8943f!important;}
+  .sidebar-item.active{background:rgba(200,148,63,.14)!important;color:#c8943f!important;border-left-color:#c8943f!important;}
+  input,textarea,button,select{outline:none!important;font-family:'DM Sans',sans-serif;}
+  select{appearance:none;-webkit-appearance:none;}
+  .result-pre{white-space:pre-wrap;word-break:break-word;font-family:'DM Sans',sans-serif;font-size:13.5px;line-height:1.9;color:#ede0c4;}
+  .admin-sidebar-item{transition:all .18s;cursor:pointer;user-select:none;}
+  .admin-sidebar-item:hover{background:rgba(64,128,224,.09)!important;color:#4080e0!important;}
+  .admin-sidebar-item.active{background:rgba(64,128,224,.14)!important;color:#4080e0!important;border-left-color:#4080e0!important;}
+`;
+document.head.appendChild(style);
+
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
+const C = {
+  bg:"#04020a", card:"rgba(8,4,14,.98)", border:"rgba(120,20,35,.32)",
+  gold:"#c8943f", text:"#ede0c4", muted:"#7a5040", dim:"#3a2028",
+};
+const WHATSAPP = "+923278445763";
+const BASE_PRICE = 5000;
+
+const PLANS = [
+  { id:"m1", name:"1 Month",  months:1, discount:0,   badge:null,                  color:"#7a1525" },
+  { id:"m2", name:"2 Months", months:2, discount:10,  badge:"10% OFF",             color:"#a03020" },
+  { id:"m3", name:"3 Months", months:3, discount:20,  badge:"⭐ 20% OFF",          color:"#c8943f" },
+  { id:"m6", name:"6 Months", months:6, discount:30,  badge:"🏆 BEST VALUE 30% OFF", color:"#c8943f" },
+];
+
+const NICHES = [
+  "Mafia Romance","Dark Romance","CEO Romance","Billionaire Romance",
+  "Revenge Story","Forbidden Love","Royal Romance","Supernatural",
+  "Crime Documentary","True Crime","Historical Documentary",
+  "Tech & AI","Finance & Money","Luxury Lifestyle","Motivation",
+  "Biography","Mystery & Thriller","Horror Stories","Comedy",
+  "Travel & Adventure","Health & Fitness","Science & Nature","Politics",
+];
+
+const VIDEO_LENGTHS = [
+  { label:"Short (8–12 min)",       value:"Short (8-12 min)" },
+  { label:"Medium (12–25 min)",     value:"Medium (12-25 min)" },
+  { label:"Long (25–60 min)",       value:"Long (25-60 min)" },
+  { label:"Ultra Long (60–120 min)",value:"Ultra Long (60-120 min)" },
+];
+const COUNTRIES = ["USA","UK","Global","Pakistan","India","Canada","Australia"];
+
+const TOOLS = [
+  { id:"generator", icon:"🎬", label:"Complete Package",     desc:"All 11 sections" },
+  { id:"titles",    icon:"🎯", label:"Viral Titles",         desc:"10 clickbait titles" },
+  { id:"script",    icon:"🎙️", label:"Script Writer",        desc:"Full cinematic script" },
+  { id:"thumbnail", icon:"🖼️", label:"Thumbnail Strategy",   desc:"5 options + scene" },
+  { id:"seo",       icon:"📝", label:"SEO Package",          desc:"Description + 30 tags" },
+  { id:"guide",     icon:"📋", label:"Production Guide",     desc:"Voice + Visual + Music" },
+];
+
+const MOCK_USERS = [
+  { id:1, name:"Fatima Khan",  plan:"3 Months", plan_active:true,  niche:"Mafia Romance",   plan_expires:"2025-04-10", stories_count:14 },
+  { id:2, name:"Ahmed Raza",   plan:"1 Month",  plan_active:false, niche:"Dark Romance",    plan_expires:null,         stories_count:2  },
+  { id:3, name:"Sara Malik",   plan:"2 Months", plan_active:true,  niche:"Tech & AI",       plan_expires:"2025-03-05", stories_count:7  },
+  { id:4, name:"Usman Ali",    plan:"6 Months", plan_active:true,  niche:"Finance & Money", plan_expires:"2025-07-20", stories_count:22 },
+  { id:5, name:"Zara Sheikh",  plan:"1 Month",  plan_active:false, niche:"True Crime",      plan_expires:null,         stories_count:4  },
+];
+
+const calcPrice = p => { const b=BASE_PRICE*p.months, d=Math.round(b*p.discount/100); return{original:b,final:b-d,saved:d}; };
+const formatPKR = n => `PKR ${n.toLocaleString()}`;
+
+// Demo AI response
+const DEMO_RESPONSE = `━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 1 — 🎯 VIRAL TITLES
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. "He Owns Half the City — And He Just Bought Her Freedom"
+2. "The Don's Obsession: She Was Never Meant to Survive This World"
+3. "She Walked Into the Lion's Den... And He Let Her Stay"
+4. "Married to the Mafia: The Night That Changed Everything"
+5. "His Rules, Her Rebellion — A Love That Could Get Them Both Killed"
+6. "The Untouchable Boss Finally Met His Match"
+7. "She Said No to the Godfather — And He Smiled"
+8. "Blood Money & Broken Vows: The Don's Last Mistake Was Falling for Her"
+9. "He Built an Empire on Secrets — She Was the Only One He Told"
+10. "Dark Obsession: When the Most Dangerous Man in the City Wants You"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 2 — 🖼️ THUMBNAIL STRATEGY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+THUMBNAIL TEXT OPTIONS:
+1. "HIS OBSESSION"
+2. "SHE DEFIED THE DON"
+3. "NO ONE SAYS NO TO HIM"
+4. "THE GODFATHER'S SECRET"
+5. "LOVE OR LOYALTY"
+
+THUMBNAIL SCENE:
+A dimly lit penthouse office at night. A powerful, sharp-featured man in a custom black suit stands with his back to a floor-to-ceiling window overlooking a glittering city skyline. A woman in a deep crimson dress stands facing him — defiant, beautiful, dangerous. The lighting is dramatic noir: warm amber on her face, cool blue shadows behind him. Candles flicker on a marble desk scattered with documents and a single rose. Title text in bold gold serif font overlaid at the top.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 3 — 🎙️ FULL CINEMATIC SCRIPT (Hook)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[HOOK — First 30 seconds]
+
+[Soft piano. City rain sounds.]
+
+"There are men who make the rules... and men who ARE the rules."
+
+[Beat. Silence.]
+
+"Alessandro Conti hadn't smiled in four years. Not since the night his brother was buried under a sky that looked like spilled ink."
+
+"He ran the city from the shadows. Clean hands. Cold heart. Absolute control."
+
+"Until her."
+
+[Music swells — low, haunting strings]
+
+"She walked into his office on a Tuesday — uninvited, unafraid — and said six words that no one had ever dared say to him."
+
+[Dramatic pause]
+
+"'I know what you did, Mr. Conti.'"
+
+[Music drops]
+
+"And instead of having her removed... he smiled."
+
+[Long pause. Audience hooked.]
+
+"This is their story. And I promise you — you won't see the ending coming."
+
+[Continue for full script length as specified...]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 4 — 🔊 VOICE PRODUCTION GUIDE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• Voice Gender: Male (deep, authoritative)
+• Tone: Dark, measured, cinematic — like a documentary narrator
+• Emotion: Controlled intensity — never rushed, always deliberate
+• Pacing: Slow at hooks, faster during action scenes, pause before reveals
+• Accent: American — neutral Midwest, no regional markers
+• Reference: Think Morgan Freeman meets David Attenborough for drama
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 5 — 🎥 VISUAL PRODUCTION GUIDE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• Opening: Black screen → slow fade into rain-soaked city at night
+• Camera Style: Cinematic wide shots alternating with intimate close-ups
+• B-roll: Luxury cars, penthouse views, shadowy corridors, candlelight
+• Mood: Film noir meets modern dark romance
+• Color Grading: Deep teal shadows, warm amber highlights, high contrast
+• Scene Progression: Start wide (establishing power), end intimate (vulnerability)
+• Transitions: Slow cross-dissolves, occasional hard cuts for dramatic beats
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 6 — 🎵 BACKGROUND MUSIC GUIDE
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• Genre: Dark orchestral / Neo-classical / Cinematic noir
+• Intro (0:00–0:30): Solo piano, sparse, melancholic
+• Rising Action: Add strings, subtle tension builds
+• Climax scenes: Full orchestra — dramatic swells
+• Quiet moments: Drop to single instrument or silence
+• Recommendations: Audiojungle "Dark Romance" category, Epidemic Sound "Cinematic Thriller"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 7 — 📝 SEO DESCRIPTION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+He was the most powerful man in the city. She was the only one brave enough — or foolish enough — to tell him the truth.
+
+What happens when a woman with nothing to lose walks into the office of a man who has everything? Alessandro Conti didn't get to where he is by showing mercy. But there's something about her defiance that he can't look away from...
+
+This is not a love story. This is a collision.
+
+⏱️ CHAPTERS:
+00:00 — The Man Who Owns the City
+03:20 — Her Mistake (Or Was It?)
+08:45 — The Deal That Changed Everything
+15:00 — When Control Becomes Obsession
+22:30 — The Truth He Buried
+31:00 — The Ending Nobody Expected
+
+💬 Drop a "🥀" in the comments if you want Part 2...
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 8 — 🏷️ SEO TAGS (30 Tags)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+mafia romance story, dark romance audiobook, billionaire romance, forbidden love story, CEO romance, possessive hero romance, dark romance 2024, mafia boss romance, enemies to lovers, arranged marriage dark romance, romance audiobook youtube, short story romance, alpha male romance, youtube story channel, dark fiction, romantic drama, powerful man romance story, obsessive love story, romance novel reading, CEO billionaire story, mafia romance audiobook, dark romance new 2024, viral romance story, youtube dark romance, best romance stories, emotional love story, dramatic romance, crime romance story, luxury romance, forbidden mafia love
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 9 — 📌 PINNED COMMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+"Alessandro or Sofia — who do you think made the first move? 🥀 Also, if you want me to continue this story, drop a 🔥 below. If we get 500 fires, Part 2 goes up this week. I already have the ending written... and trust me, you're not ready for it. 😏"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 10 — 📊 UPLOAD STRATEGY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• Best Upload Time: Friday 6–8 PM EST (USA audience peak)
+• Thumbnail: Use the "she defies him" moment — not the romantic one. Curiosity > romance.
+• First 48 Hours: Pin your comment immediately. Reply to every comment in hour 1.
+• Community Post: Post a teaser quote 24hrs before upload: "He said no one ever says no to him. She hadn't gotten that memo yet. 🥀 New story this Friday."
+• Engagement Hook: Ask viewers to guess the ending in comments
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+SECTION 11 — 📈 CHANNEL GROWTH STRATEGY
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. "The Don's Daughter" — A story told from the rival family's POV. Perfect series follow-up.
+
+2. "Cold CEO, Warm Lies" — Corporate romance with a revenge twist. Targets CEO/Billionaire niche audience crossover.
+
+3. "The Bodyguard's Secret" — Forbidden love story in the same universe. Builds a loyal fanbase across connected stories.`;
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function Ambient({ blue }) {
+  return (
+    <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0}}>
+      <div style={{position:"absolute",top:"-20%",left:"-10%",width:"60%",height:"60%",background:blue?"radial-gradient(ellipse,rgba(30,80,160,.1) 0%,transparent 70%)":"radial-gradient(ellipse,rgba(120,20,35,.15) 0%,transparent 70%)"}}/>
+      <div style={{position:"absolute",bottom:"-20%",right:"-10%",width:"50%",height:"50%",background:blue?"radial-gradient(ellipse,rgba(80,30,160,.08) 0%,transparent 70%)":"radial-gradient(ellipse,rgba(200,148,63,.08) 0%,transparent 70%)"}}/>
+    </div>
+  );
+}
+
+function Toast({ msg, type, onClose }) {
+  useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, []);
+  return (
+    <div className="fu" style={{position:"fixed",top:20,right:20,zIndex:9999,maxWidth:320,
+      background:type==="error"?"rgba(120,10,20,.97)":"rgba(10,60,25,.97)",
+      border:`1px solid ${type==="error"?"rgba(255,80,80,.3)":"rgba(40,200,80,.3)"}`,
+      borderRadius:12,padding:"12px 20px",color:type==="error"?"#ffa0a0":"#90f0b0",
+      fontSize:13,backdropFilter:"blur(20px)",boxShadow:"0 8px 40px rgba(0,0,0,.6)"}}>
+      {type==="error"?"⚠️ ":"✓ "}{msg}
+    </div>
+  );
+}
+
+function Btn({ children, onClick, disabled, variant="primary", style={}, full }) {
+  const v = {
+    primary:{background:disabled?"rgba(120,20,35,.2)":"linear-gradient(135deg,#7a1525,#b83030 55%,#c8943f)",color:disabled?"#3a2028":"#fff",border:"none",boxShadow:disabled?"none":"0 4px 24px rgba(120,20,35,.38)",cursor:disabled?"not-allowed":"pointer"},
+    ghost:{background:"transparent",color:C.muted,border:`1px solid ${C.border}`,cursor:"pointer"},
+    gold:{background:"rgba(200,148,63,.12)",color:C.gold,border:"1px solid rgba(200,148,63,.32)",cursor:"pointer"},
+    green:{background:"rgba(30,160,70,.15)",color:"#60e090",border:"1px solid rgba(30,160,70,.3)",cursor:"pointer"},
+    blue:{background:"rgba(30,80,200,.18)",color:"#80b0ff",border:"1px solid rgba(30,80,200,.3)",cursor:"pointer"},
+    red:{background:"rgba(180,20,20,.15)",color:"#f08080",border:"1px solid rgba(180,20,20,.3)",cursor:"pointer"},
+    wa:{background:"rgba(30,180,60,.15)",color:"#50e080",border:"1px solid rgba(30,180,60,.3)",cursor:"pointer"},
+  };
+  return (
+    <button onClick={disabled?undefined:onClick} disabled={!!disabled} className="hov"
+      style={{borderRadius:11,padding:"11px 24px",fontSize:13,fontWeight:500,letterSpacing:.3,
+              display:"inline-flex",alignItems:"center",gap:8,
+              width:full?"100%":"auto",justifyContent:full?"center":"flex-start",...v[variant],...style}}>
+      {children}
+    </button>
+  );
+}
+
+function Inp({ label, type="text", value, onChange, placeholder, icon }) {
+  const [f,setF]=useState(false);
+  return (
+    <div style={{marginBottom:16}}>
+      {label&&<label style={{display:"block",color:C.dim,fontSize:10,letterSpacing:2,textTransform:"uppercase",marginBottom:7}}>{label}</label>}
+      <div style={{position:"relative"}}>
+        {icon&&<span style={{position:"absolute",left:13,top:"50%",transform:"translateY(-50%)",fontSize:15}}>{icon}</span>}
+        <input type={type} value={value} onChange={onChange} placeholder={placeholder}
+          onFocus={()=>setF(true)} onBlur={()=>setF(false)}
+          style={{width:"100%",padding:icon?"12px 14px 12px 40px":"12px 16px",
+                  background:"rgba(120,20,35,.1)",border:`1px solid ${f?C.gold:"rgba(120,20,35,.35)"}`,
+                  borderRadius:10,color:C.text,fontSize:14,transition:"border-color .2s"}}/>
+      </div>
+    </div>
+  );
+}
+
+function Sel({ label, value, onChange, options }) {
+  return (
+    <div style={{marginBottom:16}}>
+      {label&&<label style={{display:"block",color:C.dim,fontSize:10,letterSpacing:2,textTransform:"uppercase",marginBottom:7}}>{label}</label>}
+      <div style={{position:"relative"}}>
+        <select value={value} onChange={e=>onChange(e.target.value)}
+          style={{width:"100%",padding:"12px 38px 12px 14px",background:"rgba(120,20,35,.1)",
+                  border:"1px solid rgba(120,20,35,.35)",borderRadius:10,color:C.text,fontSize:14,cursor:"pointer"}}>
+          {options.map(o=><option key={typeof o==="string"?o:o.value} value={typeof o==="string"?o:o.value}
+            style={{background:"#1a0a10",color:C.text}}>{typeof o==="string"?o:o.label}</option>)}
+        </select>
+        <span style={{position:"absolute",right:13,top:"50%",transform:"translateY(-50%)",color:C.gold,pointerEvents:"none"}}>▾</span>
+      </div>
+    </div>
+  );
+}
+
+// ── LOGIN ─────────────────────────────────────────────────────────────────────
+function LoginScreen({ onLogin, onGoSignup, onGoPricing }) {
+  const [email,setEmail]=useState("");
+  const [pass,setPass]=useState("");
+  const [loading,setLoading]=useState(false);
+  const [error,setError]=useState("");
+
+  const handleLogin = () => {
+    if(!email||!pass){setError("Email aur password dono zaruri hain");return;}
+    setLoading(true);setError("");
+    setTimeout(()=>{
+      if(email==="admin@saniyal.com"&&pass==="admin2024!"){
+        onLogin({role:"admin",name:"Saniyal Admin",email});
+      } else if(email.includes("@")&&pass.length>=6){
+        onLogin({role:"user",name:email.split("@")[0],email,plan:"3 Months",planActive:true,niche:"Mafia Romance",storiesCount:7,daysLeft:62,id:"demo"});
+      } else {
+        setError("Email ya password galat hai");
+        setLoading(false);
+      }
+    },1200);
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:20,position:"relative"}}>
+      <Ambient/>
+      {/* Decorative scanline effect */}
+      <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:1,background:"repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.03) 2px,rgba(0,0,0,.03) 4px)"}}/>
+      <div style={{position:"relative",zIndex:2,width:"100%",maxWidth:420}}>
+        <div className="fu" style={{textAlign:"center",marginBottom:28}}>
+          <div className="float" style={{fontSize:56,marginBottom:10,filter:"drop-shadow(0 0 20px rgba(200,148,63,.4))"}}>🎬</div>
+          <div className="glow" style={{fontFamily:"'Cinzel',serif",fontSize:21,color:C.gold,letterSpacing:4}}>SANIYAL</div>
+          <div style={{fontFamily:"'Cinzel',serif",fontSize:11,color:C.muted,letterSpacing:6,textTransform:"uppercase",marginTop:4}}>STORY TOOLS PRO</div>
+          <div style={{width:60,height:1,background:`linear-gradient(90deg,transparent,${C.gold},transparent)`,margin:"12px auto 0"}}/>
+        </div>
+
+        <div className="fu" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,padding:"32px 34px",backdropFilter:"blur(24px)",boxShadow:"0 40px 100px rgba(0,0,0,.8)"}}>
+          <h2 style={{fontFamily:"'Cinzel',serif",color:C.gold,fontSize:17,marginBottom:5,textAlign:"center",letterSpacing:1}}>Welcome Back</h2>
+          <p style={{color:C.muted,fontSize:12,textAlign:"center",marginBottom:24,fontStyle:"italic"}}>Apne account mein login karo</p>
+
+          <Inp label="Email" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="aapka@gmail.com" icon="📧"/>
+          <Inp label="Password" type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••" icon="🔒"/>
+
+          {error&&<div style={{color:"#f08080",fontSize:12,marginBottom:14,padding:"10px 14px",background:"rgba(200,50,50,.1)",borderRadius:8,border:"1px solid rgba(200,50,50,.2)"}}>⚠️ {error}</div>}
+
+          <Btn onClick={handleLogin} disabled={loading} full style={{padding:"14px",fontSize:14,marginBottom:14}}>
+            {loading?<><span className="spin">⏳</span> Logging in...</>:"🚀 Login Karo"}
+          </Btn>
+
+          {/* Demo hint */}
+          <div style={{background:"rgba(200,148,63,.06)",border:"1px solid rgba(200,148,63,.18)",borderRadius:10,padding:"10px 14px",marginBottom:14}}>
+            <div style={{color:C.gold,fontSize:11,fontWeight:600,marginBottom:4}}>🎮 Demo Login:</div>
+            <div style={{color:C.muted,fontSize:11}}>User: <span style={{color:C.text}}>demo@gmail.com</span> / <span style={{color:C.text}}>demo123</span></div>
+            <div style={{color:C.muted,fontSize:11}}>Admin: <span style={{color:C.text}}>admin@saniyal.com</span> / <span style={{color:C.text}}>admin2024!</span></div>
+          </div>
+
+          <div style={{textAlign:"center",color:C.muted,fontSize:13,marginBottom:14}}>
+            Account nahi?{" "}<span onClick={onGoSignup} style={{color:C.gold,cursor:"pointer",fontWeight:600}}>Signup Karo</span>
+          </div>
+          <div style={{borderTop:`1px solid ${C.border}`,paddingTop:14,textAlign:"center"}}>
+            <Btn variant="gold" onClick={onGoPricing} style={{fontSize:12,padding:"8px 18px",margin:"0 auto"}}>💎 Pricing Plans Dekhein</Btn>
+          </div>
+          <div style={{marginTop:16,padding:"10px 14px",background:"rgba(30,180,60,.07)",border:"1px solid rgba(30,180,60,.18)",borderRadius:9,display:"flex",gap:9,alignItems:"center"}}>
+            <span style={{fontSize:17}}>💬</span>
+            <div>
+              <div style={{color:"#60e090",fontSize:11,fontWeight:600}}>Help chahiye?</div>
+              <div style={{color:"#40c070",fontSize:11}}>WhatsApp: {WHATSAPP}</div>
+            </div>
+          </div>
+        </div>
+        <div style={{textAlign:"center",marginTop:16,color:C.dim,fontSize:10,letterSpacing:2}}>
+          MADE WITH 🎬 BY <span style={{color:C.gold,fontFamily:"'Cinzel',serif"}}>SANIYAL</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── PRICING ───────────────────────────────────────────────────────────────────
+function PricingScreen({ onGoLogin }) {
+  const [selected,setSelected]=useState(null);
+  const [toast,setToast]=useState(null);
+  return (
+    <div style={{minHeight:"100vh",background:C.bg,position:"relative"}}>
+      <Ambient/>
+      {toast&&<Toast {...toast} onClose={()=>setToast(null)}/>}
+      <div style={{position:"relative",zIndex:1,maxWidth:980,margin:"0 auto",padding:"44px 18px"}}>
+        <div className="fu" style={{textAlign:"center",marginBottom:44}}>
+          <div className="float" style={{fontSize:46,marginBottom:10}}>💎</div>
+          <h1 className="glow" style={{fontFamily:"'Cinzel',serif",fontSize:"clamp(22px,4vw,36px)",color:C.gold,marginBottom:10,letterSpacing:2}}>Choose Your Plan</h1>
+          <p style={{color:C.muted,fontSize:14,marginBottom:14}}>Jitnaa lamba plan, utna zyada bachat!</p>
+          <div style={{display:"inline-flex",alignItems:"center",gap:8,background:"rgba(200,148,63,.07)",border:"1px solid rgba(200,148,63,.2)",borderRadius:99,padding:"7px 16px"}}>
+            <span>💡</span><span style={{color:C.gold,fontSize:12}}>Base: {formatPKR(BASE_PRICE)}/month — Zyada months = zyada OFF</span>
+          </div>
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))",gap:16,marginBottom:40}}>
+          {PLANS.map(plan=>{
+            const price=calcPrice(plan); const isSel=selected===plan.id; const isBest=plan.months===3;
+            return (
+              <div key={plan.id} className="plan-card"
+                onClick={()=>{setSelected(plan.id);setToast({msg:`${plan.name} selected! Admin ko WhatsApp karo 💬`,type:"success"});}}
+                style={{background:C.card,border:`2px solid ${isSel?C.gold:isBest?"rgba(200,148,63,.42)":C.border}`,
+                        borderRadius:20,padding:"24px 20px",cursor:"pointer",position:"relative",
+                        boxShadow:isSel?"0 0 40px rgba(200,148,63,.25)":isBest?"0 0 16px rgba(200,148,63,.1)":"none"}}>
+                {plan.badge&&<div style={{position:"absolute",top:-11,left:"50%",transform:"translateX(-50%)",
+                  background:`linear-gradient(135deg,${plan.color},#c8943f)`,borderRadius:99,
+                  padding:"3px 11px",fontSize:10,color:"#fff",fontWeight:700,whiteSpace:"nowrap",
+                  animation:"badgePulse 2s ease infinite"}}>{plan.badge}</div>}
+                {isSel&&<div style={{position:"absolute",top:11,right:11,width:20,height:20,borderRadius:"50%",background:C.gold,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,color:"#fff"}}>✓</div>}
+                <div style={{fontFamily:"'Cinzel',serif",color:C.gold,fontSize:16,marginBottom:4}}>{plan.name}</div>
+                <div style={{color:C.muted,fontSize:11,marginBottom:16}}>{plan.months} month{plan.months>1?"s":""} access</div>
+                {plan.discount>0&&<div style={{color:C.dim,fontSize:12,textDecoration:"line-through",marginBottom:2}}>{formatPKR(price.original)}</div>}
+                <div style={{fontFamily:"'Cinzel',serif",fontSize:26,color:"#fff",marginBottom:3}}>{formatPKR(price.final)}</div>
+                {plan.discount>0&&<div style={{color:"#60e090",fontSize:11,marginBottom:12}}>Save {formatPKR(price.saved)} 🎉</div>}
+                <div style={{borderTop:`1px solid ${C.border}`,paddingTop:12,marginTop:plan.discount?0:12}}>
+                  {["All 23 Niches","11-Section Package","Unlimited Use","Script + SEO + Guide","Priority Support"].map(f=>(
+                    <div key={f} style={{display:"flex",alignItems:"center",gap:6,marginBottom:6}}>
+                      <span style={{color:"#60e090",fontSize:10}}>✓</span>
+                      <span style={{color:C.text,fontSize:11}}>{f}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{marginTop:14,padding:"8px",background:isSel?"rgba(200,148,63,.14)":"rgba(120,20,35,.1)",borderRadius:8,textAlign:"center",color:isSel?C.gold:C.muted,fontSize:11,fontWeight:500}}>
+                  {isSel?"✅ Selected!":"Chunein →"}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:16,padding:"24px 28px",marginBottom:20}}>
+          <h3 style={{fontFamily:"'Cinzel',serif",color:C.gold,fontSize:14,marginBottom:16,textAlign:"center"}}>💳 Payment Process</h3>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))",gap:14}}>
+            {[{s:"1",i:"💎",t:"Plan Chunein",d:"Upar se plan select karo"},{s:"2",i:"💬",t:"WhatsApp Karo",d:WHATSAPP},{s:"3",i:"💰",t:"Payment Bhejo",d:"JazzCash / EasyPaisa"},{s:"4",i:"✅",t:"Activate!",d:"24hr mein full access"}].map(s=>(
+              <div key={s.s} style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                <div style={{width:24,height:24,borderRadius:"50%",background:"rgba(200,148,63,.16)",display:"flex",alignItems:"center",justifyContent:"center",color:C.gold,fontSize:11,fontWeight:700,flexShrink:0}}>{s.s}</div>
+                <div>
+                  <div style={{fontSize:18,marginBottom:3}}>{s.i}</div>
+                  <div style={{color:C.text,fontSize:12,fontWeight:600,marginBottom:2}}>{s.t}</div>
+                  <div style={{color:C.muted,fontSize:11}}>{s.d}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{marginTop:20,textAlign:"center"}}>
+            <Btn variant="wa" style={{padding:"11px 28px",fontSize:13}}>💬 WhatsApp: {WHATSAPP}</Btn>
+          </div>
+        </div>
+        <div style={{textAlign:"center"}}>
+          <span onClick={onGoLogin} style={{color:C.gold,cursor:"pointer",fontSize:13}}>← Login / Signup</span>
+          <div style={{color:C.dim,fontSize:10,marginTop:14}}>Made with 🎬 by <span style={{color:C.gold}}>Saniyal</span></div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── GENERATOR TOOL ────────────────────────────────────────────────────────────
+function GeneratorTool({ user, mode="generator" }) {
+  const [topic,setTopic]=useState("");
+  const [niche,setNiche]=useState(user.niche||"Mafia Romance");
+  const [length,setLength]=useState("Medium (12-25 min)");
+  const [country,setCountry]=useState("USA");
+  const [loading,setLoading]=useState(false);
+  const [result,setResult]=useState("");
+  const [copied,setCopied]=useState(false);
+  const [error,setError]=useState("");
+
+  const LABELS = {
+    generator:"🎬 Complete Package — All 11 Sections",
+    titles:"🎯 Viral Title Generator",
+    script:"🎙️ Full Cinematic Script Writer",
+    thumbnail:"🖼️ Thumbnail Strategy",
+    seo:"📝 SEO Package",
+    guide:"📋 Voice + Visual + Music Guide",
+  };
+
+  const generate = () => {
+    if(!topic.trim()){setError("Topic likho — phir generate karo!");return;}
+    setLoading(true);setResult("");setError("");
+    // Demo: simulate API call
+    setTimeout(()=>{
+      setLoading(false);
+      setResult(DEMO_RESPONSE);
+    }, 2200);
+  };
+
+  const copyAll = () => {
+    navigator.clipboard?.writeText(result);
+    setCopied(true);setTimeout(()=>setCopied(false),2000);
+  };
+
+  return (
+    <div>
+      <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:18,padding:"26px",marginBottom:20}}>
+        <h3 style={{fontFamily:"'Cinzel',serif",color:C.gold,fontSize:14,marginBottom:18}}>{LABELS[mode]}</h3>
+        <Inp label="Video Topic *" value={topic} onChange={e=>setTopic(e.target.value)} placeholder="Example: Why Rolls Royce Is So Expensive" icon="🎯"/>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+          <Sel label="Niche / Category" value={niche} onChange={setNiche} options={NICHES}/>
+          <Sel label="Target Country" value={country} onChange={setCountry} options={COUNTRIES}/>
+        </div>
+        <Sel label="Video Length" value={length} onChange={setLength} options={VIDEO_LENGTHS}/>
+        {error&&<div style={{color:"#f08080",fontSize:12,marginBottom:14,padding:"10px 14px",background:"rgba(200,50,50,.1)",borderRadius:8,border:"1px solid rgba(200,50,50,.2)"}}>⚠️ {error}</div>}
+        <Btn onClick={generate} disabled={loading} full style={{padding:"13px",fontSize:14}}>
+          {loading?<><span className="spin">⏳</span> AI Generating... (Demo Mode)</>:"🚀 Generate Karo"}
+        </Btn>
+        {loading&&<div style={{marginTop:12,textAlign:"center",color:C.muted,fontSize:12}} className="shimmer">✨ God Prompt activate ho raha hai... 11 sections generate ho rahe hain...</div>}
+      </div>
+      {result&&(
+        <div className="fu">
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+            <h3 style={{fontFamily:"'Cinzel',serif",color:C.gold,fontSize:14}}>✅ Package Ready! (Demo Output)</h3>
+            <Btn variant="gold" onClick={copyAll} style={{fontSize:11,padding:"7px 14px"}}>{copied?"✓ Copied!":"📋 Copy All"}</Btn>
+          </div>
+          <div style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:14,padding:"22px",maxHeight:"60vh",overflowY:"auto"}}>
+            <pre className="result-pre">{result}</pre>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── USER DASHBOARD ────────────────────────────────────────────────────────────
+function UserDashboard({ user, onLogout }) {
+  const [active,setActive]=useState("home");
+  const [toast,setToast]=useState(null);
+
+  return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",position:"relative"}}>
+      <Ambient/>
+      {toast&&<Toast {...toast} onClose={()=>setToast(null)}/>}
+
+      {/* Sidebar */}
+      <div style={{width:230,background:"rgba(5,2,10,.98)",borderRight:`1px solid ${C.border}`,
+                   position:"fixed",top:0,bottom:0,left:0,zIndex:50,display:"flex",flexDirection:"column",backdropFilter:"blur(24px)"}}>
+        <div style={{padding:"20px 16px",borderBottom:`1px solid ${C.border}`}}>
+          <div style={{display:"flex",alignItems:"center",gap:9}}>
+            <span style={{fontSize:20,filter:"drop-shadow(0 0 8px rgba(200,148,63,.4))"}}>🎬</span>
+            <div>
+              <div style={{fontFamily:"'Cinzel',serif",color:C.gold,fontSize:11,letterSpacing:2}}>SANIYAL TOOLS</div>
+              <div style={{color:C.dim,fontSize:9,letterSpacing:1}}>YouTube Automation Pro</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{padding:"13px 16px",borderBottom:`1px solid ${C.border}`}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:9}}>
+            <div style={{width:32,height:32,borderRadius:"50%",background:"linear-gradient(135deg,#7a1525,#c8943f)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontFamily:"'Cinzel',serif",color:"#fff",fontWeight:700}}>
+              {user.name?.[0]?.toUpperCase()}
+            </div>
+            <div>
+              <div style={{color:C.text,fontSize:12,fontWeight:600}}>{user.name}</div>
+              <div style={{color:"#60e090",fontSize:10}}>{user.plan} ✅</div>
+            </div>
+          </div>
+          <div style={{background:"rgba(120,20,35,.2)",borderRadius:99,height:3,marginBottom:4}}>
+            <div style={{width:`${Math.min(100,(user.daysLeft/90)*100)}%`,height:"100%",background:"linear-gradient(90deg,#7a1525,#c8943f)",borderRadius:99}}/>
+          </div>
+          <div style={{color:C.dim,fontSize:10}}>{user.daysLeft} days remaining</div>
+        </div>
+
+        <nav style={{flex:1,padding:"10px",overflowY:"auto"}}>
+          <div className={`sidebar-item ${active==="home"?"active":""}`} onClick={()=>setActive("home")}
+            style={{display:"flex",alignItems:"center",gap:9,padding:"10px 12px",borderRadius:9,marginBottom:2,color:active==="home"?C.gold:C.muted}}>
+            <span>🏠</span><span style={{fontSize:12}}>Dashboard</span>
+          </div>
+          <div style={{color:C.dim,fontSize:9,letterSpacing:2,textTransform:"uppercase",padding:"11px 12px 4px"}}>Tools</div>
+          {TOOLS.map(t=>(
+            <div key={t.id} className={`sidebar-item ${active===t.id?"active":""}`} onClick={()=>setActive(t.id)}
+              style={{display:"flex",alignItems:"center",gap:9,padding:"10px 12px",borderRadius:9,marginBottom:2,color:active===t.id?C.gold:C.muted}}>
+              <span style={{fontSize:15}}>{t.icon}</span>
+              <div>
+                <div style={{fontSize:12}}>{t.label}</div>
+                <div style={{fontSize:10,opacity:.6}}>{t.desc}</div>
+              </div>
+            </div>
+          ))}
+        </nav>
+
+        <div style={{padding:"13px 16px",borderTop:`1px solid ${C.border}`}}>
+          <div style={{display:"flex",alignItems:"center",gap:7,padding:"8px 11px",borderRadius:8,background:"rgba(30,180,60,.07)",border:"1px solid rgba(30,180,60,.16)",marginBottom:6,cursor:"pointer"}}>
+            <span style={{fontSize:13}}>💬</span><span style={{color:"#50e080",fontSize:11}}>WhatsApp Support</span>
+          </div>
+          <div onClick={onLogout} style={{display:"flex",alignItems:"center",gap:7,padding:"8px 11px",borderRadius:8,cursor:"pointer",color:C.muted,fontSize:12,transition:"color .2s"}}
+            onMouseEnter={e=>e.currentTarget.style.color="#f08080"} onMouseLeave={e=>e.currentTarget.style.color=C.muted}>
+            <span>🚪</span> Logout
+          </div>
+          <div style={{color:C.dim,fontSize:9,textAlign:"center",marginTop:8,letterSpacing:1}}>MADE BY <span style={{color:C.gold}}>SANIYAL</span></div>
+        </div>
+      </div>
+
+      {/* Main */}
+      <div style={{marginLeft:230,flex:1,padding:"24px",overflowY:"auto"}}>
+        {active==="home"&&(
+          <div className="fu">
+            <h1 style={{fontFamily:"'Cinzel',serif",color:C.gold,fontSize:19,marginBottom:3}}>Welcome, {user.name}! 🎬</h1>
+            <p style={{color:C.muted,fontSize:13,marginBottom:24}}>Aaj kaunsa video banana hai?</p>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(155px,1fr))",gap:12,marginBottom:26}}>
+              {[{icon:"📊",label:"Stories Generated",value:user.storiesCount,color:C.gold},{icon:"💎",label:"Plan",value:user.plan,color:"#60e090"},{icon:"📅",label:"Days Left",value:user.daysLeft,color:"#80b0ff"},{icon:"🎯",label:"Niche",value:user.niche,color:"#e080c0"}].map(s=>(
+                <div key={s.label} style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:13,padding:"17px 18px"}}>
+                  <div style={{fontSize:24,marginBottom:6}}>{s.icon}</div>
+                  <div style={{color:s.color,fontSize:16,fontFamily:"'Cinzel',serif",marginBottom:3}}>{s.value}</div>
+                  <div style={{color:C.dim,fontSize:10}}>{s.label}</div>
+                </div>
+              ))}
+            </div>
+            <h2 style={{fontFamily:"'Cinzel',serif",color:C.gold,fontSize:13,marginBottom:12}}>🚀 Tools</h2>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(175px,1fr))",gap:10}}>
+              {TOOLS.map(t=>(
+                <div key={t.id} className="card-hov" onClick={()=>setActive(t.id)}
+                  style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:13,padding:"18px 16px",cursor:"pointer",textAlign:"center"}}>
+                  <div style={{fontSize:30,marginBottom:8}}>{t.icon}</div>
+                  <div style={{fontFamily:"'Cinzel',serif",color:C.gold,fontSize:12,marginBottom:4}}>{t.label}</div>
+                  <div style={{color:C.muted,fontSize:10}}>{t.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        {TOOLS.map(t=>active===t.id&&(
+          <div key={t.id} className="fu">
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:20}}>
+              <span onClick={()=>setActive("home")} style={{cursor:"pointer",color:C.muted,fontSize:12}}>← Dashboard</span>
+              <span style={{color:C.dim}}>/</span>
+              <span style={{color:C.gold,fontFamily:"'Cinzel',serif",fontSize:13}}>{t.label}</span>
+            </div>
+            <GeneratorTool user={user} mode={t.id}/>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── ADMIN PANEL ───────────────────────────────────────────────────────────────
+function AdminPanel({ onLogout }) {
+  const [active,setActive]=useState("dashboard");
+  const [users,setUsers]=useState(MOCK_USERS);
+  const [toast,setToast]=useState(null);
+  const showToast=(msg,type="success")=>{setToast({msg,type});};
+
+  const activate=(id,plan,months)=>{
+    setUsers(prev=>prev.map(u=>u.id===id?{...u,plan,plan_active:true,plan_expires:`2025-${String(new Date().getMonth()+1+months).padStart(2,"0")}-01`}:u));
+    showToast("User plan activated! ✅");
+  };
+  const deactivate=(id)=>{setUsers(prev=>prev.map(u=>u.id===id?{...u,plan_active:false}:u));showToast("User deactivated","error");};
+
+  const aC="#4080e0";
+  const stats={total:users.length,active:users.filter(u=>u.plan_active).length,pending:users.filter(u=>!u.plan_active).length,
+    revenue:users.filter(u=>u.plan_active).reduce((s,u)=>{const p=PLANS.find(p=>p.name===u.plan);return s+(p?calcPrice(p).final:0);},0)};
+
+  return (
+    <div style={{minHeight:"100vh",background:"#03050f",display:"flex"}}>
+      {toast&&<Toast {...toast} onClose={()=>setToast(null)}/>}
+      <div style={{position:"fixed",inset:0,pointerEvents:"none",zIndex:0}}>
+        <div style={{position:"absolute",top:"-20%",left:"-10%",width:"60%",height:"60%",background:"radial-gradient(ellipse,rgba(30,60,160,.1) 0%,transparent 70%)"}}/>
+        <div style={{position:"absolute",bottom:"-15%",right:"-8%",width:"50%",height:"50%",background:"radial-gradient(ellipse,rgba(80,20,160,.07) 0%,transparent 70%)"}}/>
+      </div>
+
+      {/* Admin Sidebar */}
+      <div style={{width:210,background:"rgba(3,5,18,.98)",borderRight:"1px solid rgba(30,60,160,.22)",position:"fixed",top:0,bottom:0,left:0,zIndex:50,display:"flex",flexDirection:"column"}}>
+        <div style={{padding:"20px 16px",borderBottom:"1px solid rgba(30,60,160,.2)"}}>
+          <div style={{fontFamily:"'Cinzel',serif",color:aC,fontSize:12,letterSpacing:2}}>ADMIN PANEL</div>
+          <div style={{color:"#2a4060",fontSize:10,marginTop:3}}>Saniyal Story Tools</div>
+        </div>
+        <nav style={{flex:1,padding:"10px"}}>
+          {[{id:"dashboard",i:"📊",l:"Dashboard"},{id:"users",i:"👥",l:"Users"},{id:"plans",i:"💰",l:"Revenue"}].map(n=>(
+            <div key={n.id} className={`admin-sidebar-item ${active===n.id?"active":""}`} onClick={()=>setActive(n.id)}
+              style={{display:"flex",alignItems:"center",gap:9,padding:"10px 12px",borderRadius:9,marginBottom:2,
+                color:active===n.id?aC:"#2a4060",background:active===n.id?"rgba(30,80,200,.12)":"transparent",
+                borderLeft:`3px solid ${active===n.id?aC:"transparent"}`}}>
+              <span>{n.i}</span><span style={{fontSize:12}}>{n.l}</span>
+            </div>
+          ))}
+        </nav>
+        <div style={{padding:"13px 16px",borderTop:"1px solid rgba(30,60,160,.2)"}}>
+          <div onClick={onLogout} style={{display:"flex",alignItems:"center",gap:7,padding:"8px 11px",borderRadius:8,cursor:"pointer",color:"#2a4060",fontSize:12}}
+            onMouseEnter={e=>e.currentTarget.style.color="#f08080"} onMouseLeave={e=>e.currentTarget.style.color="#2a4060"}>
+            <span>🚪</span> Logout
+          </div>
+        </div>
+      </div>
+
+      {/* Admin Main */}
+      <div style={{marginLeft:210,flex:1,padding:"26px",overflowY:"auto",position:"relative",zIndex:1}}>
+        {active==="dashboard"&&(
+          <div className="fu">
+            <h1 style={{fontFamily:"'Cinzel',serif",color:aC,fontSize:18,marginBottom:3}}>📊 Dashboard</h1>
+            <p style={{color:"#2a4060",fontSize:12,marginBottom:22}}>Saniyal Story Tools — Overview</p>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(160px,1fr))",gap:14,marginBottom:24}}>
+              {[{i:"👥",l:"Total Users",v:stats.total,c:aC},{i:"✅",l:"Active",v:stats.active,c:"#60e090"},{i:"⏳",l:"Pending",v:stats.pending,c:C.gold},{i:"💰",l:"Revenue PKR",v:stats.revenue.toLocaleString(),c:"#f0c060"}].map(s=>(
+                <div key={s.l} style={{background:"rgba(4,6,18,.98)",border:"1px solid rgba(30,60,160,.2)",borderRadius:13,padding:"18px 20px"}}>
+                  <div style={{fontSize:24,marginBottom:6}}>{s.i}</div>
+                  <div style={{color:s.c,fontSize:20,fontFamily:"'Cinzel',serif",marginBottom:3}}>{s.v}</div>
+                  <div style={{color:"#2a4060",fontSize:11}}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{background:"rgba(4,6,18,.98)",border:"1px solid rgba(30,60,160,.2)",borderRadius:13,padding:"20px 22px"}}>
+              <h3 style={{fontFamily:"'Cinzel',serif",color:aC,fontSize:13,marginBottom:14}}>⏳ Pending Activations</h3>
+              {users.filter(u=>!u.plan_active).map(u=>(
+                <div key={u.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",background:"rgba(200,148,63,.05)",border:"1px solid rgba(200,148,63,.13)",borderRadius:9,marginBottom:8,flexWrap:"wrap",gap:8}}>
+                  <div>
+                    <div style={{color:C.text,fontSize:13,fontWeight:600}}>{u.name}</div>
+                    <div style={{color:"#2a4060",fontSize:10}}>{u.niche}</div>
+                  </div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    {PLANS.map(p=><Btn key={p.id} variant="green" onClick={()=>activate(u.id,p.name,p.months)} style={{fontSize:10,padding:"5px 10px"}}>✅ {p.name}</Btn>)}
+                  </div>
+                </div>
+              ))}
+              {users.filter(u=>!u.plan_active).length===0&&<div style={{color:"#2a4060",textAlign:"center",padding:"16px",fontSize:12}}>Koi pending user nahi ✅</div>}
+            </div>
+          </div>
+        )}
+        {active==="users"&&(
+          <div className="fu">
+            <h1 style={{fontFamily:"'Cinzel',serif",color:aC,fontSize:18,marginBottom:3}}>👥 All Users</h1>
+            <p style={{color:"#2a4060",fontSize:12,marginBottom:20}}>Total: {users.length} users</p>
+            {users.map(u=>(
+              <div key={u.id} style={{background:"rgba(4,6,18,.98)",border:`1px solid ${u.plan_active?"rgba(30,160,70,.22)":"rgba(30,60,160,.18)"}`,borderRadius:13,padding:"16px 20px",marginBottom:10}}>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",flexWrap:"wrap",gap:10}}>
+                  <div>
+                    <div style={{color:C.text,fontSize:13,fontWeight:600,marginBottom:2}}>{u.name}</div>
+                    <div style={{color:"#2a4060",fontSize:11,marginBottom:5}}>Niche: {u.niche} · Stories: {u.stories_count}</div>
+                    <span style={{fontSize:10,padding:"3px 9px",borderRadius:99,fontWeight:600,
+                      background:u.plan_active?"rgba(30,160,70,.18)":"rgba(120,80,20,.18)",
+                      color:u.plan_active?"#60e090":C.gold}}>
+                      {u.plan_active?`✅ ${u.plan}`:"⏳ Pending"}
+                    </span>
+                    {u.plan_active&&u.plan_expires&&<span style={{color:"#2a4060",fontSize:10,marginLeft:8}}>Exp: {u.plan_expires}</span>}
+                  </div>
+                  <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                    {!u.plan_active&&PLANS.map(p=><Btn key={p.id} variant="green" onClick={()=>activate(u.id,p.name,p.months)} style={{fontSize:10,padding:"5px 10px"}}>✅ {p.name}</Btn>)}
+                    {u.plan_active&&<Btn variant="red" onClick={()=>deactivate(u.id)} style={{fontSize:10,padding:"5px 10px"}}>❌ Deactivate</Btn>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+        {active==="plans"&&(
+          <div className="fu">
+            <h1 style={{fontFamily:"'Cinzel',serif",color:aC,fontSize:18,marginBottom:3}}>💰 Revenue</h1>
+            <p style={{color:"#2a4060",fontSize:12,marginBottom:22}}>Plan-wise breakdown</p>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:14,marginBottom:22}}>
+              {PLANS.map(plan=>{
+                const count=users.filter(u=>u.plan===plan.name&&u.plan_active).length;
+                const price=calcPrice(plan);
+                return (
+                  <div key={plan.id} style={{background:"rgba(4,6,18,.98)",border:"1px solid rgba(30,60,160,.2)",borderRadius:13,padding:"18px 20px"}}>
+                    <div style={{fontFamily:"'Cinzel',serif",color:C.gold,fontSize:14,marginBottom:3}}>{plan.name}</div>
+                    <div style={{color:aC,fontSize:19,marginBottom:3}}>{formatPKR(price.final)}</div>
+                    {plan.discount>0&&<div style={{color:"#60e090",fontSize:10,marginBottom:8}}>{plan.discount}% OFF</div>}
+                    <div style={{color:"#2a4060",fontSize:11}}>Active: <span style={{color:C.text}}>{count}</span></div>
+                    <div style={{color:"#2a4060",fontSize:11,marginTop:3}}>Revenue: <span style={{color:C.gold}}>{formatPKR(price.final*count)}</span></div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{background:"rgba(4,6,18,.98)",border:"1px solid rgba(30,60,160,.2)",borderRadius:13,padding:"20px 24px"}}>
+              <h3 style={{fontFamily:"'Cinzel',serif",color:aC,fontSize:13,marginBottom:14}}>💰 Total Summary</h3>
+              <div style={{display:"flex",gap:24,flexWrap:"wrap"}}>
+                <div><div style={{color:C.gold,fontFamily:"'Cinzel',serif",fontSize:22}}>{formatPKR(stats.revenue)}</div><div style={{color:"#2a4060",fontSize:11}}>Total Revenue</div></div>
+                <div><div style={{color:"#60e090",fontFamily:"'Cinzel',serif",fontSize:22}}>{stats.active}</div><div style={{color:"#2a4060",fontSize:11}}>Active Subs</div></div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── SIGNUP ────────────────────────────────────────────────────────────────────
+function SignupScreen({ onGoLogin }) {
+  const [name,setName]=useState(""); const [email,setEmail]=useState(""); const [pass,setPass]=useState(""); const [niche,setNiche]=useState("Mafia Romance"); const [loading,setLoading]=useState(false); const [done,setDone]=useState(false); const [error,setError]=useState("");
+  const handleSignup=()=>{
+    if(!name||!email||!pass){setError("Sab fields fill karo");return;}
+    if(pass.length<6){setError("Password minimum 6 characters");return;}
+    setLoading(true);setError("");
+    setTimeout(()=>{setLoading(false);setDone(true);},1400);
+  };
+  if(done) return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:20,position:"relative"}}>
+      <Ambient/>
+      <div style={{position:"relative",zIndex:1,width:"100%",maxWidth:400,textAlign:"center"}}>
+        <div className="fu" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,padding:"44px 32px"}}>
+          <div style={{fontSize:52,marginBottom:14}}>🎉</div>
+          <h2 style={{fontFamily:"'Cinzel',serif",color:C.gold,fontSize:20,marginBottom:8}}>Account Ban Gaya!</h2>
+          <p style={{color:C.muted,fontSize:13,marginBottom:22,lineHeight:1.7}}>Ab plan buy karo aur full access pao!</p>
+          <Btn onClick={onGoLogin} full style={{padding:"13px",fontSize:14}}>🚀 Login Karo</Btn>
+        </div>
+      </div>
+    </div>
+  );
+  return (
+    <div style={{minHeight:"100vh",background:C.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:20,position:"relative"}}>
+      <Ambient/>
+      <div style={{position:"relative",zIndex:1,width:"100%",maxWidth:420}}>
+        <div className="fu" style={{textAlign:"center",marginBottom:24}}>
+          <div style={{fontSize:44,marginBottom:8}}>🎬</div>
+          <div style={{fontFamily:"'Cinzel',serif",fontSize:17,color:C.gold,letterSpacing:3}}>SANIYAL</div>
+          <div style={{color:C.dim,fontSize:10,letterSpacing:3,textTransform:"uppercase",marginTop:3}}>New Account</div>
+        </div>
+        <div className="fu" style={{background:C.card,border:`1px solid ${C.border}`,borderRadius:20,padding:"30px 32px"}}>
+          <Inp label="Aapka Naam" value={name} onChange={e=>setName(e.target.value)} placeholder="Full Name" icon="👤"/>
+          <Inp label="Email" type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="aapka@gmail.com" icon="📧"/>
+          <Inp label="Password" type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="Min 6 characters" icon="🔒"/>
+          <Sel label="Main Niche" value={niche} onChange={setNiche} options={NICHES}/>
+          {error&&<div style={{color:"#f08080",fontSize:12,marginBottom:12,padding:"9px 13px",background:"rgba(200,50,50,.1)",borderRadius:8,border:"1px solid rgba(200,50,50,.2)"}}>⚠️ {error}</div>}
+          <Btn onClick={handleSignup} disabled={loading} full style={{padding:"13px",fontSize:14,marginBottom:12}}>
+            {loading?<><span className="spin">⏳</span> Creating...</>:"✨ Account Banao"}
+          </Btn>
+          <div style={{textAlign:"center",color:C.muted,fontSize:12}}>
+            Pehle se account?{" "}<span onClick={onGoLogin} style={{color:C.gold,cursor:"pointer",fontWeight:600}}>Login Karo</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── MAIN APP ──────────────────────────────────────────────────────────────────
+export default function App() {
+  const [screen,setScreen]=useState("login");
+  const [user,setUser]=useState(null);
+  const [toast,setToast]=useState(null);
+
+  const showToast=(msg,type="success")=>{setToast({msg,type});};
+  const handleLogin=(u)=>{setUser(u);setScreen(u.role==="admin"?"admin":"user");showToast(`Welcome, ${u.name}! 🎬`);};
+  const handleLogout=()=>{setUser(null);setScreen("login");};
+
+  return (
+    <div style={{fontFamily:"'DM Sans',sans-serif",background:C.bg,minHeight:"100vh"}}>
+      {toast&&<Toast {...toast} onClose={()=>setToast(null)}/>}
+      {screen==="login"   &&<LoginScreen onLogin={handleLogin} onGoSignup={()=>setScreen("signup")} onGoPricing={()=>setScreen("pricing")}/>}
+      {screen==="signup"  &&<SignupScreen onGoLogin={()=>setScreen("login")}/>}
+      {screen==="pricing" &&<PricingScreen onGoLogin={()=>setScreen("login")}/>}
+      {screen==="user"    &&user&&<UserDashboard user={user} onLogout={handleLogout}/>}
+      {screen==="admin"   &&<AdminPanel onLogout={handleLogout}/>}
+    </div>
+  );
+}
